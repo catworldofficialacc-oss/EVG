@@ -1,0 +1,153 @@
+#!/bin/bash
+# Graphics0.1.0 — Terminal graphics module for Ez
+# Supports: Canvas, Pixel, Rectangle, Circle, Line, Clear, Render
+# Works with Load Graphics in Ez
+
+# -------------------------------
+# Variables
+# -------------------------------
+declare -A EZG_CANVAS
+EZG_WIDTH=0
+EZG_HEIGHT=0
+
+# -------------------------------
+# Colors ANSI map
+# -------------------------------
+declare -A EZG_COLORS
+EZG_COLORS["black"]="\033[40m  \033[0m"
+EZG_COLORS["red"]="\033[41m  \033[0m"
+EZG_COLORS["green"]="\033[42m  \033[0m"
+EZG_COLORS["yellow"]="\033[43m  \033[0m"
+EZG_COLORS["blue"]="\033[44m  \033[0m"
+EZG_COLORS["magenta"]="\033[45m  \033[0m"
+EZG_COLORS["cyan"]="\033[46m  \033[0m"
+EZG_COLORS["white"]="\033[47m  \033[0m"
+
+# -------------------------------
+# Create canvas
+# -------------------------------
+Canvas() {
+    EZG_WIDTH="$1"
+    EZG_HEIGHT="$2"
+    for ((y=0;y<EZG_HEIGHT;y++)); do
+        for ((x=0;x<EZG_WIDTH;x++)); do
+            EZG_CANVAS["$x,$y"]="black"
+        done
+    done
+}
+
+# -------------------------------
+# Set a pixel
+# -------------------------------
+Pixel() {
+    local x="$1"
+    local y="$2"
+    local color="$3"
+    if (( x >= 0 && x < EZG_WIDTH && y >= 0 && y < EZG_HEIGHT )); then
+        EZG_CANVAS["$x,$y"]="$color"
+    fi
+}
+
+# -------------------------------
+# Draw rectangle
+# -------------------------------
+Rectangle() {
+    local x0="$1"
+    local y0="$2"
+    local w="$3"
+    local h="$4"
+    local color="$5"
+    for ((y=y0;y<y0+h;y++)); do
+        for ((x=x0;x<x0+w;x++)); do
+            Pixel "$x" "$y" "$color"
+        done
+    done
+}
+
+# -------------------------------
+# Draw line (Bresenham)
+# -------------------------------
+Line() {
+    local x0="$1"
+    local y0="$2"
+    local x1="$3"
+    local y1="$4"
+    local color="$5"
+
+    local dx=$(( x1 - x0 ))
+    local dy=$(( y1 - y0 ))
+    local abs_dx=${dx#-}
+    local abs_dy=${dy#-}
+    local sx=1
+    local sy=1
+    (( dx < 0 )) && sx=-1
+    (( dy < 0 )) && sy=-1
+    local err=$(( (abs_dx > abs_dy ? abs_dx : -abs_dy)/2 ))
+    local e2
+    while true; do
+        Pixel "$x0" "$y0" "$color"
+        (( x0 == x1 && y0 == y1 )) && break
+        e2=$err
+        (( e2 > -abs_dx )) && { err=$((err - abs_dy)); x0=$((x0 + sx)); }
+        (( e2 < abs_dy )) && { err=$((err + abs_dx)); y0=$((y0 + sy)); }
+    done
+}
+
+# -------------------------------
+# Draw circle (Midpoint)
+# -------------------------------
+Circle() {
+    local xc="$1"
+    local yc="$2"
+    local r="$3"
+    local color="$4"
+    local x=0
+    local y=$r
+    local d=$((3 - 2 * r))
+    while (( y >= x )); do
+        Pixel $((xc + x)) $((yc + y)) "$color"
+        Pixel $((xc - x)) $((yc + y)) "$color"
+        Pixel $((xc + x)) $((yc - y)) "$color"
+        Pixel $((xc - x)) $((yc - y)) "$color"
+        Pixel $((xc + y)) $((yc + x)) "$color"
+        Pixel $((xc - y)) $((yc + x)) "$color"
+        Pixel $((xc + y)) $((yc - x)) "$color"
+        Pixel $((xc - y)) $((yc - x)) "$color"
+        (( x++ ))
+        if (( d > 0 )); then
+            (( y-- ))
+            d=$(( d + 4*(x - y) + 10 ))
+        else
+            d=$(( d + 4*x + 6 ))
+        fi
+    done
+}
+
+# -------------------------------
+# Clear canvas
+# -------------------------------
+Clear() {
+    for ((y=0;y<EZG_HEIGHT;y++)); do
+        for ((x=0;x<EZG_WIDTH;x++)); do
+            EZG_CANVAS["$x,$y"]="black"
+        done
+    done
+}
+
+# -------------------------------
+# Render canvas
+# -------------------------------
+Render() {
+    tput clear
+    for ((y=0;y<EZG_HEIGHT;y++)); do
+        for ((x=0;x<EZG_WIDTH;x++)); do
+            color="${EZG_CANVAS["$x,$y"]}"
+            printf "%b" "${EZG_COLORS[$color]:-  }"
+        done
+        echo ""
+    done
+}
+
+# -------------------------------
+# End of Graphics Module
+# -------------------------------
